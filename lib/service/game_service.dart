@@ -1,41 +1,35 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
-import 'package:gamebox/model/game_model_class.dart';
+import '../model/game_model_class.dart';
 
 class GameService {
-  // Load games from assets JSON file
-  // Returns only first 100 items for performance
+  // Parses the full JSON and returns every item.
+  // Pagination (show 20 at a time) is handled by DashboardScreen,
+  // so we must NOT limit the list here.
   Future<List<Game>> loadGames() async {
     try {
-      // Load JSON string from assets
       final String jsonString =
       await rootBundle.loadString('assets/data/allgames_list.json');
 
-      // Parse JSON
       final List<dynamic> jsonList = json.decode(jsonString);
 
-      // Convert to Game objects
-      List<Game> allGames = jsonList.map((json) => Game.fromJson(json)).toList();
-
-      // Return only first 100 items for demo performance
-      // In production, you'd implement pagination or lazy loading
-      return allGames.take(100).toList();
+      return jsonList.map((item) => Game.fromJson(item)).toList();
     } catch (e) {
       print('Error loading games: $e');
       return [];
     }
   }
 
-  // Filter games by search query
+  // Case-insensitive filter across name, category, and groupname.
   List<Game> filterGames(List<Game> games, String query) {
-    if (query.isEmpty) return games;
+    if (query.trim().isEmpty) return games;
 
-    final lowerQuery = query.toLowerCase();
+    final lower = query.trim().toLowerCase();
 
-    return games.where((game) {
-      return game.name.toLowerCase().contains(lowerQuery) ||
-          game.category.toLowerCase().contains(lowerQuery) ||
-          game.groupname.toLowerCase().contains(lowerQuery);
+    return games.where((g) {
+      return g.name.toLowerCase().contains(lower) ||
+          g.category.toLowerCase().contains(lower) ||
+          g.groupname.toLowerCase().contains(lower);
     }).toList();
   }
 }
