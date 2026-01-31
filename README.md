@@ -62,4 +62,4 @@ This project is built strictly for evaluation and demo purposes.
 ---
 
 ## 📊 JSON Data
-Games are loaded from:
+Games are loaded from allgames_list.json
