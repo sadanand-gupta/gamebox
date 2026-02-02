@@ -121,6 +121,7 @@
 //   }
 // }
 import 'package:flutter/material.dart';
+import 'package:gamebox/screens/login_screen.dart';
 import 'package:gamebox/service/auth_service.dart';
 import 'screens/registration_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -154,56 +155,128 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   final _authService = AuthService();
+
+  late AnimationController _controller;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _scaleAnim = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+
+    _fadeAnim = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+
+    _controller.forward();
+    _navigateNext();
   }
 
-  Future<void> _checkAuthStatus() async {
-    // Add small delay for splash effect
-    await Future.delayed(const Duration(seconds: 1));
-
+  Future<void> _navigateNext() async {
+    await Future.delayed(const Duration(seconds: 2));
     final isLoggedIn = await _authService.isLoggedIn();
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => isLoggedIn
-              ? const DashboardScreen()
-              : const RegistrationScreen(),
-        ),
-      );
-    }
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            isLoggedIn ? const DashboardScreen() : const LoginScreen(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF111827),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.games,
-              size: 100,
-              color: Colors.blue.shade600,
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 🔵 Glow ring
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.5),
+                        blurRadius: 40,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.videogame_asset_rounded,
+                    size: 72,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                const Text(
+                  'GameBox',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'Loading your adventure...',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF6366F1),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Games Demo',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(),
-          ],
+          ),
         ),
       ),
     );
