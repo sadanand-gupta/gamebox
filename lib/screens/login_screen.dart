@@ -1,10 +1,11 @@
+// lib/screens/login_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:animated_background/animated_background.dart';
-import 'package:gamebox/service/auth_service.dart';
-import 'package:gamebox/widgets/validators.dart';
-import 'registration_screen.dart';
-import 'dashboard_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:gamebox/screens/main_screen.dart';
+import 'package:gamebox/screens/registration_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,559 +16,667 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
-  final _authService = AuthService();
-
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
 
   bool _isLoading = false;
-  bool _otpSent = false;
   bool _obscurePassword = true;
-
-  late TabController _tabController;
+  bool _rememberMe = false;
+  String _activeTab = 'email';
+  late AnimationController _shimmerController;
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
+    _shimmerController.dispose();
+    _pulseController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _phoneController.dispose();
-    _otpController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
-  // --- Authentication logic remains the same ---
   Future<void> _loginWithEmail() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      _showError('Please enter email and password');
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showSnackbar('Please enter email and password', isError: true);
       return;
     }
-    if (!Validators.isValidEmail(email)) {
-      _showError('Please enter a valid email address');
-      return;
-    }
+
     setState(() => _isLoading = true);
-    final success = await _authService.loginWithEmail(
-      email: email,
-      password: password,
-    );
-    if (!mounted) return;
+    await Future.delayed(const Duration(seconds: 2));
     setState(() => _isLoading = false);
-    if (success) {
-      _navigateToDashboard();
-    } else {
-      _showError('Invalid email or password');
-    }
-  }
 
-  Future<void> _sendOtp() async {
-    final phone = _phoneController.text.trim();
-    if (!Validators.isValidE164Phone(phone)) {
-      _showError('Phone number must include country code (e.g. +919876543210)');
-      return;
-    }
-    final storedPhone = await _authService.getStoredPhone();
-    if (storedPhone == null || storedPhone != phone) {
-      _showError('Phone number not registered. Please register first.');
-      return;
-    }
-    setState(() => _otpSent = true);
-    _showSuccess('Mock OTP sent: ${AuthService.mockOtp}');
-  }
-
-  Future<void> _verifyOtp() async {
-    final phone = _phoneController.text.trim();
-    final otp = _otpController.text.trim();
-    if (otp.isEmpty) {
-      _showError('Please enter OTP');
-      return;
-    }
-    setState(() => _isLoading = true);
-    final success = await _authService.verifyOtp(phone: phone, otp: otp);
     if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (success) {
-      _navigateToDashboard();
-    } else {
-      _showError('Invalid OTP. Use: ${AuthService.mockOtp}');
-    }
-  }
 
-  void _navigateToDashboard() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
-    );
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const MainScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     );
   }
 
-  void _showSuccess(String message) {
-    if (!mounted) return;
+  void _showSnackbar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
+        content: Text(
+          message,
+          style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
         ),
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: isError
+            ? const Color(0xFFFF4757)
+            : const Color(0xFF2ED573),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 5),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isWideScreen = size.width > 900;
+    final isTablet = size.width > 600 && size.width <= 900;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF111827),
-      body: AnimatedBackground(
-        behaviour: RandomParticleBehaviour(
-          options: ParticleOptions(
-            baseColor: const Color(0xFF6366F1),
-            spawnMinSpeed: 20.0,
-            spawnMaxSpeed: 50.0,
-            particleCount: 50,
-            spawnMaxRadius: 1.5,
-            spawnMinRadius: 1.0,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF0A1628),
+              const Color(0xFF1A2742),
+              const Color(0xFF0F1F3A),
+            ],
           ),
         ),
-        vsync: this,
-        child: _isLoading
-            ? Center(child: _buildLoadingIndicator())
-            : Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 450,
-                    ), // Consistent max width
-                    child: _buildUnifiedLayout(),
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-
-  // ✨ UNIFIED LAYOUT for all screen sizes
-  Widget _buildUnifiedLayout() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          'Welcome Back, Champion!',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Your next adventure awaits. Sign in to continue.',
-          style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.8)),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: _buildLoginFormContent(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    // A simpler loading indicator for the dark theme
-    return const Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-        ),
-        SizedBox(height: 20),
-        Text(
-          'Please wait...',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white70,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ✨ SIMPLIFIED: No longer needs 'isDesktop' flag
-  Widget _buildLoginFormContent() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildLoginTypeSelector(),
-        const SizedBox(height: 24),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.fastOutSlowIn,
-          child: _tabController.index == 0
-              ? _buildEmailTab()
-              : _buildWhatsAppTab(),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Text(
-              "Don't have an account? ",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 14,
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RegistrationScreen(),
-                ),
-              ),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Register',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            ...List.generate(isWideScreen ? 20 : 12, (index) {
+              return AnimatedBuilder(
+                animation: _shimmerController,
+                builder: (context, child) {
+                  final offset = _shimmerController.value * 100;
+                  return Positioned(
+                    left: (index * 100.0) % size.width,
+                    top: (index * 50.0) % size.height + offset,
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                },
+              );
+            }),
+            SafeArea(
+              child: isWideScreen
+                  ? _buildWideScreenLayout()
+                  : isTablet
+                  ? _buildTabletLayout()
+                  : _buildMobileLayout(),
             ),
           ],
         ),
-      ],
+      ),
+      bottomNavigationBar: (!isWideScreen) ? _buildCasinoBottomBar() : null,
     );
   }
 
-  Widget _buildLoginTypeSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildSelectorOption("Email", 0),
-        const SizedBox(width: 10),
-        _buildSelectorOption("WhatsApp", 1),
-      ],
-    );
-  }
-
-  Widget _buildSelectorOption(String text, int index) {
-    bool isSelected = _tabController.index == index;
-    return GestureDetector(
-      onTap: () => _tabController.animateTo(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.white.withOpacity(0.25)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
+  Widget _buildWideScreenLayout() {
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1400),
+        padding: const EdgeInsets.symmetric(horizontal: 60),
+        child: Row(
+          children: [
+            Expanded(flex: 5, child: _buildAnimatedHeroImage(750)),
+            const SizedBox(width: 80),
+            Expanded(flex: 4, child: _buildLoginForm()),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildEmailTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildTextField(
-          controller: _emailController,
-          label: 'Email Address',
-          hint: 'your@email.com',
-          icon: Icons.email_rounded,
-          keyboardType: TextInputType.emailAddress,
+  Widget _buildTabletLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 5, child: _buildAnimatedHeroImage(380)),
+            Expanded(flex: 4, child: _buildLoginForm()),
+          ],
         ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _passwordController,
-          label: 'Password',
-          hint: '••••••••',
-          icon: Icons.lock_rounded,
-          obscureText: _obscurePassword,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscurePassword
-                  ? Icons.visibility_rounded
-                  : Icons.visibility_off_rounded,
-              color: Colors.white.withOpacity(0.5),
-              size: 20,
-            ),
-            onPressed: () =>
-                setState(() => _obscurePassword = !_obscurePassword),
-          ),
-        ),
-        const SizedBox(height: 24),
-        _buildPrimaryButton(
-          label: 'Sign In',
-          onPressed: _loginWithEmail,
-          icon: Icons.arrow_forward_rounded,
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildWhatsAppTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildTextField(
-          controller: _phoneController,
-          label: 'Phone Number',
-          hint: '+919876543210',
-          icon: Icons.phone_rounded,
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 16),
-        _buildPrimaryButton(
-          label: _otpSent ? 'OTP Sent ✓' : 'Send OTP',
-          onPressed: _otpSent ? null : _sendOtp,
-          icon: Icons.send_rounded,
-          color: const Color(0xFF10B981),
-        ),
-        if (_otpSent) ...[
-          const SizedBox(height: 24),
-          _buildTextField(
-            controller: _otpController,
-            label: 'Enter OTP',
-            hint: 'Enter OTP',
-            icon: Icons.verified_user_rounded,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-          ),
-          const SizedBox(height: 16),
-          _buildPrimaryButton(
-            label: 'Verify & Sign In',
-            onPressed: _verifyOtp,
-            icon: Icons.check_circle_rounded,
-            color: const Color(0xFF10B981),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFBBF24), width: 1),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.info_rounded,
-                  color: Color(0xFFD97706),
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Demo OTP: ${AuthService.mockOtp}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF92400E),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildMobileLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          _buildAnimatedHeroImage(170),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _buildLoginForm(),
           ),
         ],
-      ],
-    );
-  }
-
-  // ✨ SIMPLIFIED: Colors are now hardcoded for the glass theme
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    int? maxLength,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withOpacity(0.9),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            maxLength: maxLength,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontWeight: FontWeight.w400,
-              ),
-              prefixIcon: Container(
-                margin: const EdgeInsets.all(12),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              suffixIcon: suffixIcon,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              counterText: '',
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPrimaryButton({
-    required String label,
-    required VoidCallback? onPressed,
-    required IconData icon,
-    Color color = const Color(0xFF6366F1),
-  }) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        gradient: onPressed != null
-            ? LinearGradient(colors: [color, color.withOpacity(0.8)])
-            : null,
-        color: onPressed == null ? Colors.grey.shade300 : null,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: onPressed != null
-            ? [
-                BoxShadow(
-                  color: color.withOpacity(0.3),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ]
-            : null,
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(14),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: onPressed != null
-                        ? Colors.white
-                        : Colors.grey.shade500,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+    );
+  }
+
+  Widget _buildAnimatedHeroImage(double height) {
+    return Container(
+      alignment: Alignment.center,
+      child:
+          Image.asset(
+                'assets/images/ufafuture_9.png',
+                fit: BoxFit.contain,
+                height: height,
+              )
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .moveY(
+                begin: -10,
+                end: 10,
+                duration: 2500.ms,
+                curve: Curves.easeInOutSine,
+              )
+              .then(delay: 500.ms)
+              .shimmer(
+                duration: 1500.ms,
+                color: const Color(0xFFFFD700).withOpacity(0.3),
+              ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 480),
+      padding: EdgeInsets.all(isMobile ? 24 : 36),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A1628).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withOpacity(0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withOpacity(0.15),
+            blurRadius: 50,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            height: 40,
+            child: DefaultTextStyle(
+              style: GoogleFonts.rajdhani(
+                fontSize: isMobile ? 24 : 28,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFFFFD700),
+                letterSpacing: 3,
+                shadows: [
+                  Shadow(
+                    blurRadius: 10,
+                    color: const Color(0xFFFFD700).withOpacity(0.7),
+                  ),
+                ],
+              ),
+              child: AnimatedTextKit(
+                repeatForever: true,
+                animatedTexts: [
+                  TypewriterAnimatedText(
+                    'WELCOME TO UFA',
+                    speed: const Duration(milliseconds: 100),
+                  ),
+                  TypewriterAnimatedText(
+                    'CASINO ONLINE',
+                    speed: const Duration(milliseconds: 100),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(color: Colors.white24, width: 2),
+                right: BorderSide(color: Colors.white24, width: 2),
+              ),
+            ),
+            child: Text(
+              'HIGH STAKES // AUTHENTICATION',
+              style: GoogleFonts.orbitron(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: Colors.white.withOpacity(0.6),
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          _buildTabSwitcher().animate().fadeIn(delay: 500.ms),
+          SizedBox(height: isMobile ? 16 : 20),
+          _buildInputField(
+            controller: _emailController,
+            hint: 'PLAYER ID / EMAIL',
+            icon: Icons.person_outline,
+            keyboardType: TextInputType.emailAddress,
+          ).animate().fadeIn(delay: 600.ms),
+          SizedBox(height: isMobile ? 12 : 14),
+          _buildInputField(
+            controller: _passwordController,
+            hint: 'PASSWORD',
+            icon: Icons.lock_outline,
+            obscureText: _obscurePassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: Colors.white.withOpacity(0.4),
+                size: isMobile ? 18 : 20,
+              ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
+          ).animate().fadeIn(delay: 700.ms),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: isMobile ? 16 : 18,
+                    height: isMobile ? 16 : 18,
+                    child: Checkbox(
+                      value: _rememberMe,
+                      onChanged: (value) =>
+                          setState(() => _rememberMe = value ?? false),
+                      fillColor: MaterialStateProperty.resolveWith((states) {
+                        if (states.contains(MaterialState.selected)) {
+                          return const Color(0xFFFFD700);
+                        }
+                        return Colors.transparent;
+                      }),
+                      side: BorderSide(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 6 : 8),
+                  Text(
+                    'REMEMBER ME',
+                    style: GoogleFonts.inter(
+                      fontSize: isMobile ? 9 : 10,
+                      color: Colors.white.withOpacity(0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'LOST PASSWORD?',
+                  style: GoogleFonts.inter(
+                    fontSize: isMobile ? 9 : 10,
+                    color: Colors.white.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  icon,
-                  color: onPressed != null
-                      ? Colors.white
-                      : Colors.grey.shade500,
-                  size: 20,
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 18 : 24),
+          _buildPrimaryButton(
+            label: 'ENTER THE LOBBY',
+            onPressed: _isLoading ? null : _loginWithEmail,
+          ).animate().fadeIn(delay: 800.ms),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  'NEW PLAYER?',
+                  style: GoogleFonts.inter(
+                    fontSize: isMobile ? 8 : 10,
+                    color: Colors.white.withOpacity(0.5),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ],
+              ),
+              Expanded(child: Divider(color: Colors.white.withOpacity(0.1))),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          _buildSecondaryButton(
+            label: 'CREATE ACCOUNT',
+            onPressed: () => Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => const RegistrationScreen(),
+                transitionsBuilder: (_, animation, __, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+              ),
+            ),
+          ).animate().fadeIn(delay: 900.ms),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabSwitcher() {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+
+    return Container(
+      height: isMobile ? 42 : 46,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1F3A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildTab('PLAYER ID', 'email')),
+          Expanded(child: _buildTab('WHATSAPP', 'whatsapp')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, String value) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+    final isActive = _activeTab == value;
+
+    return GestureDetector(
+      onTap: () => setState(() => _activeTab = value),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [Color(0xFF5B4DFF), Color(0xFF7B68FF)],
+                )
+              : null,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.rajdhani(
+              fontSize: isMobile ? 12 : 14,
+              fontWeight: FontWeight.w700,
+              color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType? keyboardType,
+  }) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: GoogleFonts.inter(
+        color: Colors.white,
+        fontSize: isMobile ? 13 : 14,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.inter(
+          color: Colors.white.withOpacity(0.3),
+          fontSize: isMobile ? 12 : 13,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: Colors.white.withOpacity(0.4),
+          size: isMobile ? 20 : 22,
+        ),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.black.withOpacity(0.3),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 16,
+          horizontal: 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            bottomRight: Radius.circular(12),
+          ),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Color(0xFFFFD700), width: 2),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(12),
+            bottomRight: Radius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton({required String label, VoidCallback? onPressed}) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Container(
+          width: double.infinity,
+          height: isMobile ? 48 : 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: onPressed != null
+                ? const LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFFFC700)],
+                  )
+                : LinearGradient(
+                    colors: [Colors.grey.shade700, Colors.grey.shade600],
+                  ),
+            boxShadow: onPressed != null
+                ? [
+                    BoxShadow(
+                      color: const Color(
+                        0xFFFFD700,
+                      ).withOpacity(0.3 + _pulseController.value * 0.2),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: ElevatedButton(
+            onPressed: onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF0A1628),
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: GoogleFonts.rajdhani(
+                      fontSize: isMobile ? 14 : 16,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0A1628),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSecondaryButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width <= 600;
+
+    return SizedBox(
+      width: double.infinity,
+      height: isMobile ? 48 : 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFFFFD700), width: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.rajdhani(
+            fontSize: isMobile ? 14 : 16,
+            fontWeight: FontWeight.w900,
+            color: const Color(0xFFFFD700),
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCasinoBottomBar() {
+    return Container(
+      height: 65,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2742).withOpacity(0.95),
+        border: Border(
+          top: BorderSide(
+            color: const Color(0xFFFFD700).withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildBottomNavItem(Icons.casino, 'CASINO', true),
+          _buildBottomNavItem(Icons.sports_esports, 'GAMES', false),
+          _buildBottomNavItem(Icons.emoji_events, 'TOURNAMENTS', false),
+          _buildBottomNavItem(Icons.card_giftcard, 'REWARDS', false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem(IconData icon, String label, bool isActive) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          color: isActive
+              ? const Color(0xFFFFD700)
+              : Colors.white.withOpacity(0.5),
+          size: 24,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.rajdhani(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: isActive
+                ? const Color(0xFFFFD700)
+                : Colors.white.withOpacity(0.5),
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 }
